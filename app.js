@@ -27,14 +27,12 @@ const User=require("./models/user.js");
 
 const   dbUrl=process.env.ATLASDB_URL;
 
-main().then(()=>{
-    console.log("connected to DB");
-}).catch((err)=>{
-    console.log(err);
-});
-
 async function main(){
-    await mongoose.connect(dbUrl);
+    await mongoose.connect(dbUrl, {
+        serverSelectionTimeoutMS: 30000,
+        socketTimeoutMS: 45000,
+    });
+    console.log("Connected to MongoDB");
 }
 
 app.set("view engine", "ejs");
@@ -116,6 +114,15 @@ app.use((err,req,res,next)=>{
 
 
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+
+// Start server only after DB connection is established
+main()
+  .then(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("Failed to connect to MongoDB:", err);
+    process.exit(1);
+  });
