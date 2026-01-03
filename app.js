@@ -48,24 +48,25 @@ const oneWeekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 const store = MongoStore.create({
     mongoUrl: dbUrl,
     crypto: {
-        secret: process.env.SECRETE ,
+        secret: process.env.SECRET || process.env.SECRETE,
     },  
     touchAfter: 24 * 3600 // time in seconds after which the session will be updated
 });
 
-store.on("error", ()=>{
-    console.log("ERROR IN MONGO SESSION STORE",err);
+store.on("error", (err)=>{
+    console.log("ERROR IN MONGO SESSION STORE", err);
 });
 
 const sessionoptions = {
     store,
-    secret: process.env.SECRETE ,
+    secret: process.env.SECRET || process.env.SECRETE,
     resave: false,
     saveUninitialized: true,
     cookie: {
         expires: oneWeekFromNow,
         maxAge: 7 * 24 * 60 * 60 * 1000,
-        httpOnly: true
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production"
     }
 };
 
@@ -83,7 +84,7 @@ passport.deserializeUser(User.deserializeUser());
 app.use((req,res,next)=>{
     res.locals.success=req.flash("success");
     res.locals.error=req.flash("error");
-    res.locals.currUser=req.user;
+    res.locals.currUser=req.user || null;
     next();
 });
 
@@ -114,6 +115,7 @@ app.use((err,req,res,next)=>{
 });
 
 
-app.listen(8080,()=>{
-    console.log("listening on 8080 server");
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });

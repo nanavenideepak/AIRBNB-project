@@ -1,8 +1,22 @@
 const Listing=require("../models/listing.js");
 module.exports.index=async  (req,res)=>{
-   const allListings= await Listing.find({});
-   res.render("listings/index.ejs",{allListings});
-    };
+   let query = {};
+   const searchQuery = req.query.q;
+   
+   if(searchQuery && searchQuery.trim() !== "") {
+       const regex = new RegExp(searchQuery, 'i'); // case-insensitive search
+       query = {
+           $or: [
+               { title: regex },
+               { location: regex },
+               { country: regex }
+           ]
+       };
+   }
+   
+   const allListings = await Listing.find(query);
+   res.render("listings/index.ejs", { allListings, searchQuery: searchQuery || "" });
+};
 
 module.exports.renderNewForm=(req,res)=>{
    
@@ -19,19 +33,28 @@ module.exports.showListing=async (req, res)=>{
     .populate("owner");
 
     if(!listing){
-        req.flash("error", "Listing you requeted for does not exist!");
-        res.redirect("/listings");
+        req.flash("error", "Listing you requested for does not exist!");
+        return res.redirect("/listings");
     }
-    console.log(listing);
     res.render("listings/show.ejs", {listing});
 };
 
 module.exports.createListing=async (req,res)=>{
-    let url= req.file.path;
-    let filename= req.file.filename;
     const newListing=new Listing(req.body.listing);
     newListing.owner=req.user._id;
-    newListing.image={url,filename};
+    
+    if(req.file){
+        let url= req.file.path;
+        let filename= req.file.filename;
+        newListing.image={url,filename};
+    } else {
+        // Default placeholder image if no image is uploaded
+        newListing.image={
+            url: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80",
+            filename: "default"
+        };
+    }
+    
     await newListing.save();
     req.flash("success", "New Listing Created");
     res.redirect("/listings");
@@ -41,8 +64,8 @@ module.exports.renderEditForm=async (req,res)=>{
     let {id}=req.params;
     const listing=await Listing.findById(id);
     if(!listing){
-        req.flash("error", "Listing you requeted for does not exist!");
-        res.redirect("/listings");
+        req.flash("error", "Listing you requested for does not exist!");
+        return res.redirect("/listings");
     }
     let originalImageUrl= listing.image.url;
     originalImageUrl=originalImageUrl.replace("/upload","/upload/h_300,w_250");
@@ -66,8 +89,7 @@ module.exports.updateListing=async (req,res)=>{
 
 module.exports.deleteListing=async (req,res)=>{
     let{id}=req.params;
-    let deleted=await Listing.findByIdAndDelete(id);
-    console.log(deleted);
+    await Listing.findByIdAndDelete(id);
     req.flash("success", " Listing Deleted");
     res.redirect("/listings");
 };
